@@ -1,0 +1,44 @@
+########################
+# OS / editor cruft
+########################
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+
+########################
+# Python / notebooks
+########################
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg-info/
+.ipynb_checkpoints/
+.env
+.venv/
+venv/
+.envrc
+
+########################
+# Project data
+########################
+
+# Ignore all data files in Data/
+Data/**/*.csv
+Data/**/*.parquet
+Data/**/*.feather
+Data/**/*.nc
+Data/**/*.grib
+Data/**/*.zip
+Data/**/*.gz
+Data/**/*.bz2
+
+########################
+# Logs / misc
+########################
+logs/
+*.log
+*.tmp
+*.bak
