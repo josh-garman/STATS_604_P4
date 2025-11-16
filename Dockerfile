@@ -39,5 +39,6 @@ RUN if compgen -G "scripts/*.sh" > /dev/null; then chmod +x scripts/*.sh; fi
 # Start a bash shell when the container runs.
 # CMD clears the base image's default ("start-notebook.sh"),
 # so we don't accidentally launch Jupyter.
-ENTRYPOINT ["/usr/bin/env", "bash", "-l"]
+CMD ["/usr/bin/env", "bash", "-l"]
+
 
