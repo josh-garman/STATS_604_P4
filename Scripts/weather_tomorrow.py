@@ -1,5 +1,7 @@
 import requests
 import pandas as pd
+import time
+from datetime import timedelta
 
 #hard coded coords from weather_coords.py 
 #no need to keep pulling from api unless the cities grow legs 
@@ -69,18 +71,20 @@ STATE_CITY_COORDS = {
     ],
 }
 
-def get_daily_for_point_hist(lat, lon, start_date, end_date, timezone="America/Detroit"):
+
+def get_daily_for_point_forecast(lat, lon, start_date, end_date, timezone="America/Detroit"):
     """
-    Historical daily temps for a single point.
+    Forecast daily temps for a single point (Open-Meteo forecast API).
     """
-    url = "https://archive-api.open-meteo.com/v1/archive"
+    url = "https://api.open-meteo.com/v1/forecast"
     params = {
         "latitude": lat,
         "longitude": lon,
-        "start_date": start_date,  # 'YYYY-MM-DD'
-        "end_date": end_date,      # 'YYYY-MM-DD'
+        # same daily vars as historical, but from the forecast endpoint
         "daily": ["temperature_2m_min", "temperature_2m_max", "temperature_2m_mean"],
         "timezone": timezone,
+        "start_date": start_date,
+        "end_date": end_date,
     }
     r = requests.get(url, params=params)
     r.raise_for_status()
@@ -89,29 +93,25 @@ def get_daily_for_point_hist(lat, lon, start_date, end_date, timezone="America/D
     df["time"] = pd.to_datetime(df["time"])
     return df.set_index("time")
 
-
-def get_state_daily_temps_hist(state_code, start_date, end_date):
+def get_state_daily_temps_forecast(state_code, start_date, end_date):
     """
-    Historical daily temps for a state:
+    Forecast daily temps for a state:
     simple average over all cities in STATE_CITY_COORDS[state_code].
     """
     cities = STATE_CITY_COORDS[state_code]
     dfs = []
 
     for city in cities:
-        df_loc = get_daily_for_point_hist(city["lat"], city["lon"], start_date, end_date)
-        # tag columns with city name
+        df_loc = get_daily_for_point_forecast(city["lat"], city["lon"], start_date, end_date)
         df_loc.columns = pd.MultiIndex.from_product([[city["name"]], df_loc.columns])
         dfs.append(df_loc)
 
     combined = pd.concat(dfs, axis=1)
 
-    # average across cities for each metric
     result = pd.DataFrame(index=combined.index)
     for var in ["temperature_2m_min", "temperature_2m_max", "temperature_2m_mean"]:
         result[var] = combined.xs(var, level=1, axis=1).mean(axis=1)
 
-    # rename
     result = result.rename(columns={
         "temperature_2m_min": "min",
         "temperature_2m_max": "max",
@@ -127,36 +127,29 @@ state_codes = [
     "VA", "WV",
 ]
 
+# --- TOMORROW FORECAST PULL --- #
+# "Tomorrow" in EST 
+today_local = pd.Timestamp.now(tz="America/Detroit").normalize()
+tomorrow = (today_local + pd.Timedelta(days=1)).date()
+tomorrow_str = tomorrow.isoformat()  # 'YYYY-MM-DD'
 
-start_date='2019-10-01'
-end_date='2025-11-01'
- 
-dates = pd.date_range(start=start_date, end=end_date, freq="D")
-df = pd.DataFrame(index=dates)
-df.index.name = "date"
+# single-row index for tomorrow
+dates = pd.date_range(start=tomorrow_str, end=tomorrow_str, freq="D")
+df_forecast = pd.DataFrame(index=dates)
+df_forecast.index.name = "date"
 
-temp_vals = get_state_daily_temps_hist("DE", start_date=start_date, end_date=end_date)
-
-import time 
-
-# state_codes = ["DE",]
 for state in state_codes:
-    temp_vals = get_state_daily_temps_hist(state, start_date=start_date, end_date=end_date)
-    time.sleep(10)
-    df[f"min_{state}"]  = temp_vals["min"]
-    df[f"max_{state}"]  = temp_vals["max"]
-    df[f"mean_{state}"] = temp_vals["mean"]
+    temp_vals = get_state_daily_temps_forecast(
+        state,
+        start_date=tomorrow_str,
+        end_date=tomorrow_str,
+    )
+    time.sleep(1)
 
+    df_forecast[f"min_{state}"]  = temp_vals["min"]
+    df_forecast[f"max_{state}"]  = temp_vals["max"]
+    df_forecast[f"mean_{state}"] = temp_vals["mean"]
 
-df = df.reset_index().rename(columns={"index": "date"})
+df_forecast = df_forecast.reset_index().rename(columns={"index": "date"})
 
-df.to_csv("Data/intermediate/weather_intermediate.csv", index=False)
-
-
-print(df.shape[0])
-print(df["load_area"].nunique())
-print(df["load_area"].unique())
-print(df["load_area"].value_counts())
-
-
-
+df_forecast.to_csv("Data/intermediate/weather_tomorrow_forecast.csv", index=False)

@@ -136,24 +136,3 @@ for c in STATE_CITY_COORDS["WV"]:
     if c["name"].startswith("Charleston"):
         c["lat"], c["lon"] = 38.3498, -81.6326
 
-
-print(STATE_CITY_COORDS)
-# print(STATE_CITY_COORDS)
-
-# #daily location temps
-# def get_daily_for_point(lat, lon, start_date, end_date, timezone="America/Detroit"):
-#     url = "https://archive-api.open-meteo.com/v1/archive"
-#     params = {
-#         "latitude": lat,
-#         "longitude": lon,
-#         "start_date": start_date,
-#         "end_date": end_date,
-#         "daily": ["temperature_2m_min", "temperature_2m_max", "temperature_2m_mean"],
-#         "timezone": timezone,
-#     }
-#     r = requests.get(url, params=params)
-#     r.raise_for_status()
-#     j = r.json()
-#     df = pd.DataFrame(j["daily"])
-#     df["time"] = pd.to_datetime(df["time"])
-#     return df.set_index("time")

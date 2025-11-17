@@ -1,20 +1,10 @@
-#!/usr/bin/env python3
-from datetime import date
-#NOTE: Just a toy predictor for now, outputs 0s. 
-ZONES = 29
-HOURS = 24
+import pandas as pd
+from predict_functs import add_zone_predictions, peak_middle_idx_3hr, CrossBaseWeatherCats, predict
 
-#!/usr/bin/env python3
-from datetime import date
+pred = pd.read_csv("Data/processed/prediction_frame.csv")
 
-ZONES, HOURS = 29, 24
+pred = predict(pred, reg_model_dir = "Models/production", zones=None, 
+            pred_col="mw_pred", reg_model_suffix="_ridge_pipeline.joblib", 
+            class_model_dir = "Models/production")
 
-def main():
-    tokens = [f"\"{date.today().isoformat()}\""]
-    tokens += ["0"] * (ZONES * HOURS)   # L_i_00..23 for i=1..29
-    tokens += ["0"] * ZONES             # PH_1..PH_29
-    tokens += ["0"] * ZONES             # PD_1..PD_29
-    print(", ".join(tokens))
-
-if __name__ == "__main__":
-    main()
+print(pred.shape)

@@ -114,18 +114,29 @@ df = df.merge(
 df = df.drop(columns=["year_month"])
 
 #subsetting for years we want
-#2019 special case 
-years_keep = [2020, 2021, 2022, 2023, 2024, 2025]
+# #2019 special case 
+# years_keep = [2020, 2021, 2022, 2023, 2024, 2025]
+# months_keep = [1, 2, 10, 11, 12] 
+
+# df_2019 = df[(df["Year"] == 2019) & (df["Month"].isin([10, 11, 12]))]
+# df_other_years = df[
+#     df["Year"].isin(years_keep)
+#     & df["Month"].isin(months_keep)
+# ]
+
+# df = pd.concat([df_2019, df_other_years], ignore_index=True)
+
+#2020 special case 
+years_keep = [2021, 2022, 2023, 2024, 2025]
 months_keep = [1, 2, 10, 11, 12] 
 
-df_2019 = df[(df["Year"] == 2019) & (df["Month"].isin([10, 11, 12]))]
+df_2020 = df[(df["Year"] == 2020) & (df["Month"].isin([10, 11, 12]))]
 df_other_years = df[
     df["Year"].isin(years_keep)
     & df["Month"].isin(months_keep)
 ]
 
-df = pd.concat([df_2019, df_other_years], ignore_index=True)
-
+df = pd.concat([df_2020, df_other_years], ignore_index=True)
 
 df.to_csv("Data/intermediate/PJM_intermediate.csv", index=False)
 
