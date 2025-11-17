@@ -35,6 +35,12 @@ Data/**/*.zip
 Data/**/*.gz
 Data/**/*.bz2
 
+# Ignore all models in Models 
+Models/
+models/
+*.joblib
+*.pkl
+
 ########################
 # Logs / misc
 ########################
