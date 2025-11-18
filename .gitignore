@@ -41,6 +41,9 @@ models/
 *.joblib
 *.pkl
 
+# Ignore all results 
+results/
+
 ########################
 # Logs / misc
 ########################
