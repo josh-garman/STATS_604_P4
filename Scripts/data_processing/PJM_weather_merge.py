@@ -1,12 +1,18 @@
+#!/usr/bin/env python3
+import warnings
 import pandas as pd
 import numpy as np
 import holidays
+warnings.filterwarnings("ignore", category=pd.errors.PerformanceWarning)
+warnings.filterwarnings("ignore", category=FutureWarning)
 
-PJM = pd.read_csv("Data/intermediate/PJM_intermediate.csv")
+# PJM = pd.read_csv("Data/intermediate/PJM_intermediate.csv")
+PJM = pd.read_parquet("Data/intermediate/PJM_intermediate.parquet")
 PJM["datetime_beginning_utc"] = pd.to_datetime(PJM["datetime_beginning_utc"])
 PJM["date"] = PJM["datetime_beginning_utc"].dt.floor("D")
 
-weather = pd.read_csv("Data/intermediate/weather_intermediate.csv")
+# weather = pd.read_csv("Data/raw/weather_hist.csv")
+weather = pd.read_parquet("Data/raw/weather_hist.parquet")
 weather["date"] = pd.to_datetime(weather["date"])
 
 merged = PJM.merge(weather, on="date", how="left")
@@ -51,8 +57,5 @@ for col in weather_cols:
     df[f"{col}_sq"] = df[col] ** 2
     df[f"{col}_cu"] = df[col] ** 3
 
-df.to_csv("Data/processed/full_data.csv", index=False)
-
-
-# print(merged.head())
-
+# df.to_csv("Data/processed/full_data.csv", index=False)
+df.to_parquet("Data/processed/full_data.parquet", index=False)

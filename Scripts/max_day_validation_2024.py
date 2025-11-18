@@ -1,12 +1,14 @@
+#!/usr/bin/env python3
 import pandas as pd
 
 # 1) Load / set up data -----------------------------------------
 
 # windows_df already exists, e.g.:
-windows_df = pd.read_csv("Data/processed/daily_max_window_2024.csv")
+# windows_df = pd.read_csv("Data/processed/daily_max_window_2024.csv")
+windows_df = pd.read_parquet("Data/processed/daily_max_window_2024.parquet")
 
 # thresholds_df from your CSV
-thresholds_df = pd.read_csv("Models/validation_and_training/zone_peak_day_thresholds.csv")
+thresholds_df = pd.read_parquet("Models/validation_and_training/zone_peak_day_thresholds.parquet")
 
 thresholds_df = thresholds_df.dropna(subset=["threshold"])
 
@@ -68,5 +70,6 @@ result = agg[[
     "loss_per_row"
 ]].sort_values("loss_per_row")  # or sort however you want
 
-print(result)
+result.to_csv("results/max_day_results_2024.csv", index=False)
+
 

@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+import warnings
 import pandas as pd
 import numpy as np
 import joblib
@@ -8,7 +10,8 @@ from sklearn.preprocessing import OneHotEncoder, StandardScaler
 from sklearn.linear_model import LinearRegression, Ridge, Lasso, ElasticNet
 from sklearn.pipeline import Pipeline
 from sklearn.metrics import mean_squared_error, r2_score, mean_absolute_error
-
+warnings.filterwarnings("ignore", category=pd.errors.PerformanceWarning)
+warnings.filterwarnings("ignore", category=FutureWarning)
 # Travis Dauwalter et al. (2022)
 # “Coalition Stability in PJM: Exploring the Consequences of State Defection from the Wholesale Market.”
 load_area_states = {
@@ -89,11 +92,7 @@ def make_linear_pipeline(base_numeric, weather_cols, categorical_features, penal
     weather_cols: list of strings like ["min_DE", "max_DE", "mean_DE", "min_NJ", ...]
     penalty: "ols", "ridge", "lasso", "enet"
     """
-    # # Base numeric everywhere
-    # base_numeric = ["mw_lag_1y", "prev_month_mean_mw"]
-    # # numeric_features = base_numeric + weather_cols
-    # categorical_features = ["Day_of_Week", "Hour"]  # treated as factor
-
+  
     preprocess = ColumnTransformer(
         transformers=[
             ("base",    StandardScaler(),           base_numeric),
@@ -102,13 +101,6 @@ def make_linear_pipeline(base_numeric, weather_cols, categorical_features, penal
         ],
         remainder="drop"
     )
-
-    # # All pairwise interactions between scaled numeric + DOW dummies
-    # poly = PolynomialFeatures(
-    #     degree=2,
-    #     interaction_only=True,
-    #     include_bias=False
-    # )
 
     #model 
     if penalty == "ols":
@@ -125,7 +117,7 @@ def make_linear_pipeline(base_numeric, weather_cols, categorical_features, penal
     n_base = len(base_numeric)
     n_weather = len(weather_cols)
 
-    # 3) Full pipeline: preprocess -> custom cross -> model
+    
     pipe = Pipeline(steps=[
         ("preprocess", preprocess),
         ("cross", CrossBaseWeatherCats(n_base=n_base, n_weather=n_weather)),
@@ -149,6 +141,7 @@ def tune_ridge_on_val(
     penalty="ridge",
     model_path=None,
     df_test=None,
+    zone=None
 ):
     """
     df_train, df_val: dataframes already subset exactly how you want
@@ -217,22 +210,21 @@ def tune_ridge_on_val(
     if df_test is not None:
         X_test = df_test[x_cols]
         y_test = df_test["mw"].values
-        y_pred_test = pipe.predict(X_test)
+        y_pred_test = final_pipe.predict(X_test)
         rmse = mean_squared_error(y_test, y_pred_test)**(1/2)
         mae  = mean_absolute_error(y_test, y_pred_test)
         r2   = r2_score(y_test, y_pred_test)
 
-        # # --- quick time-series plot ---
-        # import matplotlib.pyplot as plt
-        # plt.figure(figsize=(12, 5))
-        # plt.plot(y_test, label="Actual MW")
-        # plt.plot(y_pred_test, label="Predicted MW", alpha=0.8)
-        # plt.xlabel("Time")
-        # plt.ylabel("Load (MW)")
-        # plt.title("AE zone: actual vs predicted load (2024+ holdout)")
-        # plt.legend()
-        # plt.tight_layout()
-        # plt.show()
+        #saving for visualization
+        if zone in ["OVEC", "AP"]:
+            # put into a DataFrame
+            df_test_val = pd.DataFrame({
+                "y_true": y_test,
+                "y_pred": y_pred_test,
+            })
+
+            # save
+            df_test_val.to_csv(f"results/{zone}_hourly_pred_2024.csv", index=False)
 
         return [rmse, mae, r2]
 
@@ -244,7 +236,7 @@ def split_winter_train_val_test(df, val_season):
     # keep only winter months 8–12 and 1–2
     train_mask = df["season_year"] < val_season
     val_mask   = df["season_year"] == val_season
-    test_mask  = df["season_year"] > val_season
+    test_mask = (df["season_year"] > val_season) & (df["season_year"] < 2025)
 
     df_train = df[train_mask].copy()
     df_val   = df[val_mask].copy()
@@ -261,30 +253,14 @@ def get_weather_cols_for_zone(zone, load_area_states):
 
     for st in states:
         # full list of expected columns for this state
-        if zone in ["OVEC", "AEPOPT"]:
-            expected = [
+        
+        expected = [
                 f"min_{st}", f"max_{st}", f"mean_{st}",
                 f"min_{st}_sq", f"max_{st}_sq", f"mean_{st}_sq",
                 f"min_{st}_cu", f"max_{st}_cu", f"mean_{st}_cu",
                 f"mean_{st}_below_60", f"mean_{st}_above_60",
                 f"mean_{st}_below_60_sq", f"mean_{st}_above_60_sq",
-            ]
-        elif zone in ["AEPIMP", "AEPKPT", "EKPC", "DOM"]:
-            expected = [
-                f"min_{st}", f"max_{st}", f"mean_{st}",
-                f"min_{st}_sq", f"max_{st}_sq", f"mean_{st}_sq",
-                f"min_{st}_cu", f"max_{st}_cu", f"mean_{st}_cu",
-                f"mean_{st}_below_60", f"mean_{st}_above_60",
-                f"mean_{st}_below_60_sq", f"mean_{st}_above_60_sq",
-            ]
-        else:
-            expected = [
-                f"min_{st}", f"max_{st}", f"mean_{st}",
-                f"min_{st}_sq", f"max_{st}_sq", f"mean_{st}_sq",
-                f"min_{st}_cu", f"max_{st}_cu", f"mean_{st}_cu",
-                f"mean_{st}_below_60", f"mean_{st}_above_60",
-                f"mean_{st}_below_60_sq", f"mean_{st}_above_60_sq",
-            ]
+        ]        
 
         weather_cols.extend(expected)
 
@@ -295,7 +271,7 @@ def get_weather_cols_for_zone(zone, load_area_states):
 #FITTING LOOP
 
 
-#same for all zon
+#same for all zones
 base_numeric = [
     "mw_lag_1y", "prev_month_mean_mw",
     "mw_lag_1y_sq", "prev_month_mean_mw_sq",
@@ -309,10 +285,12 @@ categorical_features = ["Day_of_Week", "Hour", "is_weekend", "is_holiday"]
 alphas = [0.1, 1, 5, 10, 50, 100, 500, 1000]
 
 #df
-df = pd.read_csv("Data/processed/full_data.csv")
+# df = pd.read_csv("Data/processed/full_data.csv")
+df = pd.read_parquet("Data/processed/full_data.parquet")
 df["Day_of_Week"] = df["Day_of_Week"].astype("category")
 df["Hour"] = df["Hour"].astype("category")
 
+test_results = [] 
 
 for zone in load_area_states:
     df_zone = df[df["load_area"] == zone].copy()
@@ -353,7 +331,7 @@ for zone in load_area_states:
         df_zone,
         val_season=2023
     )
-
+    
     model_path = f"Models/validation_and_training/{zone}_ridge_pipeline_train.joblib"
     
     results = tune_ridge_on_val(
@@ -365,9 +343,16 @@ for zone in load_area_states:
         alphas=alphas,
         penalty="ridge",
         model_path=model_path,
-        df_test=df_test
+        df_test=df_test,
+        zone=zone
     )
-    print(f"{zone}: {results}")
+
+    test_results.append({
+        "zone": zone,
+        "rmse": results[0],
+        "mae": results[1],
+        "r2": results[2],
+    })
 
     #production model 
     #train on 2020-2023
@@ -393,3 +378,5 @@ for zone in load_area_states:
     )
     
 
+testing_results = pd.DataFrame(test_results)
+testing_results.to_csv("results/testing_results_hourly_pred_2024.csv", index=False)

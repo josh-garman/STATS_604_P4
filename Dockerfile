@@ -25,7 +25,15 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 # ---- Python dependencies ----
 # Pin versions in production; unpinned here for brevity.
-RUN pip install --no-cache-dir numpy pandas matplotlib
+RUN /opt/conda/bin/python -m pip install --no-cache-dir \
+    numpy \
+    pandas \
+    matplotlib \
+    scikit-learn \
+    joblib \
+    holidays \
+    requests \
+    pyarrow
 
 # ---- Project files ----
 WORKDIR /app

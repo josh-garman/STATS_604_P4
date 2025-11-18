@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 import requests
 import pandas as pd
 import time
@@ -152,4 +153,5 @@ for state in state_codes:
 
 df_forecast = df_forecast.reset_index().rename(columns={"index": "date"})
 
-df_forecast.to_csv("Data/intermediate/weather_tomorrow_forecast.csv", index=False)
+# df_forecast.to_csv("Data/intermediate/weather_tomorrow_forecast.csv", index=False)
+df_forecast.to_parquet("Data/intermediate/weather_tomorrow_forecast.parquet", index=False)

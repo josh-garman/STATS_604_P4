@@ -1,43 +1,10 @@
-
+#!/usr/bin/env python3
 import numpy as np
 import pandas as pd
+import warnings
+warnings.filterwarnings("ignore", category=pd.errors.PerformanceWarning)
+warnings.filterwarnings("ignore", category=FutureWarning)
 
-
-# def build_sliding_df(daily_df, zone, n_days, window_size):
-#     daily_df = daily_df.copy()
-#     zone_daily = (
-#         daily_df[daily_df['load_area'] == zone]
-#         .sort_values('date')
-#         .reset_index(drop=True)
-#     )
-
-#     window_size = 10
-#     windows = []  # will hold info per window if you want
-
-#     n_days = len(zone_daily)
-
-#     # sliding windows: [0..9], [1..10], ..., [n_days-10..n_days-1]
-#     for start in range(0, n_days - window_size + 1):
-#         win = zone_daily.iloc[start:start+window_size].copy()
-#         win_id = f"{zone}_{start}"  # or any identifier you like
-
-#         # true top-2 days in THIS window
-#         win = win.sort_values('max_mw', ascending=False)
-#         top2_dates = set(win['date'].iloc[:2])
-
-#         # restore original order within window (optional, for clarity)
-#         win = win.sort_values('date')
-
-#         # add a label: 1 if this day is top-2 in this window, else 0
-#         win['is_true_peak_in_window'] = win['date'].isin(top2_dates).astype(int)
-
-#         # tag window id
-#         win['window_id'] = win_id
-
-#         windows.append(win)
-
-#     zone_windows_df = pd.concat(windows, ignore_index=True)
-#     return zone_windows_df
 
 def compute_zone_threshold(zone_windows_df, n_grid=25):
     # scores and labels
@@ -110,13 +77,15 @@ def train_zone_thresholds(daily_df, zones, save_dir, n_grid=25):
 
     thresholds_df = pd.DataFrame(records)
     # save to disk
-    thresholds_df.to_csv(f"{save_dir}/zone_peak_day_thresholds.csv", index=False)
+    # thresholds_df.to_csv(f"{save_dir}/zone_peak_day_thresholds.csv", index=False)
+    thresholds_df.to_parquet(f"{save_dir}/zone_peak_day_thresholds.parquet", index=False)
 
-daily_df = pd.read_csv("Data/processed/daily_max_window_2023.csv")
+# daily_df = pd.read_csv("Data/processed/daily_max_window_2023.csv")
+daily_df = pd.read_parquet("Data/processed/daily_max_window_2023.parquet")
 save_dir = "Models/validation_and_training"
 train_zone_thresholds(daily_df = daily_df, zones = None, save_dir = save_dir)
 
-daily_df = pd.read_csv("Data/processed/daily_max_window_2024.csv")
+daily_df = pd.read_parquet("Data/processed/daily_max_window_2024.parquet")
 save_dir = "Models/production"
 train_zone_thresholds(daily_df = daily_df, zones = None, save_dir = save_dir)
 

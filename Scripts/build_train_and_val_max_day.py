@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
 import pandas as pd
+import warnings
 from pathlib import Path
-from predict_functs import add_zone_predictions, peak_middle_idx_3hr, CrossBaseWeatherCats
+from predict_functs import add_zone_predictions, peak_middle_idx_3hr, CrossBaseWeatherCats, predict
+warnings.filterwarnings("ignore", category=pd.errors.PerformanceWarning)
+warnings.filterwarnings("ignore", category=FutureWarning)
 
 def build_sliding_df(daily_df, zone, n_days=120, window_size=10):
     daily_df = daily_df.copy()
@@ -63,19 +66,23 @@ def build_all_windows(daily_df, n_days = 120, window_size=10, zones=None):
 
 model_dir = Path("Models/validation_and_training")
 
-full_data = pd.read_csv("Data/processed/full_data.csv")
+# full_data = pd.read_csv("Data/processed/full_data.csv")
+full_data = pd.read_parquet("Data/processed/full_data.parquet")
 pred_2023 = full_data[full_data["season_year"] == 2023]
 pred_2024 = full_data[full_data["season_year"] == 2024]
 
 
 #2023 preds 
-pred_2023 = add_zone_predictions(
-    pred_2023,
-    model_dir=model_dir,
-    zones=None,
-    pred_col="mw_pred",
-    model_suffix="_ridge_pipeline_val.joblib",
-)
+# pred_2023 = add_zone_predictions(
+#     pred_2023,
+#     model_dir=model_dir,
+#     zones=None,
+#     pred_col="mw_pred",
+#     model_suffix="_ridge_pipeline_val.joblib",
+# )
+
+pred_2023 = predict(pred_2023, reg_model_dir = "Models/validation_and_training", zones=None, 
+            pred_col="mw_pred", reg_model_suffix="_ridge_pipeline_val.joblib")
 
 
 # make sure it's a datetime
@@ -96,17 +103,14 @@ daily_max_2023 = daily_max_2023.rename(columns={
 })
 
 daily_max_window_2023 = build_all_windows(daily_max_2023, n_days = 120, window_size=10, zones=None)
-daily_max_2023.to_csv("Data/processed/daily_max_2023.csv", index=False)
-daily_max_window_2023.to_csv("Data/processed/daily_max_window_2023.csv", index=False)
+# daily_max_2023.to_csv("Data/processed/daily_max_2023.csv", index=False)
+# daily_max_window_2023.to_csv("Data/processed/daily_max_window_2023.csv", index=False)
+daily_max_2023.to_parquet("Data/processed/daily_max_2023.parquet", index=False)
+daily_max_window_2023.to_parquet("Data/processed/daily_max_window_2023.parquet", index=False)
 
 #2024 preds 
-pred_2024 = add_zone_predictions(
-    pred_2024,
-    model_dir=model_dir,
-    zones=None,
-    pred_col="mw_pred",
-    model_suffix="_ridge_pipeline_train.joblib",
-)
+pred_2024 = predict(pred_2024, reg_model_dir = "Models/validation_and_training", zones=None, 
+            pred_col="mw_pred", reg_model_suffix="_ridge_pipeline_train.joblib")
 
 # make sure it's a datetime
 pred_2024["datetime_beginning_utc"] = pd.to_datetime(pred_2024["datetime_beginning_utc"])
@@ -116,15 +120,33 @@ pred_2024["date"] = pred_2024["datetime_beginning_utc"].dt.date
 
 # roll up to daily, per load_area
 daily_max_2024 = (
-    pred_2024.groupby(["load_area", "date"], as_index=False)[["mw", "mw_pred"]]
+    pred_2024.groupby(["load_area", "date"], as_index=False)[["mw", "mw_pred","peak_hour_idx"]]
       .max()
+)        
+
+#get the max hour true val 
+idx = pred_2024.groupby(["load_area", "date"])["mw"].idxmax()
+
+hour_at_max = (
+    pred_2024
+      .loc[idx, ["load_area", "date", "Hour"]]
+      .rename(columns={"Hour": "hour_at_max_mw"})
 )
+
+daily_max_2024 = daily_max_2024.merge(hour_at_max, on=["load_area", "date"], how="left")
 
 daily_max_2024 = daily_max_2024.rename(columns={
     "mw": "max_mw",
-    "mw_pred": "max_pred_mw"
+    "mw_pred": "max_pred_mw",
+    "hour_at_max_mw": "true_max_hr",
+    "peak_hour_idx": "pred_max_hr"
 })
 
+
+
 daily_max_window_2024 = build_all_windows(daily_max_2024, n_days = 120, window_size=10, zones=None)
-daily_max_2024.to_csv("Data/processed/daily_max_2024.csv", index=False)
-daily_max_window_2024.to_csv("Data/processed/daily_max_window_2024.csv", index=False)
+
+# daily_max_2024.to_csv("Data/processed/daily_max_2024.csv", index=False)
+# daily_max_window_2024.to_csv("Data/processed/daily_max_window_2024.csv", index=False)
+daily_max_2024.to_parquet("Data/processed/daily_max_2024.parquet", index=False)
+daily_max_window_2024.to_parquet("Data/processed/daily_max_window_2024.parquet", index=False)

@@ -1,15 +1,19 @@
-import pandas as pd 
+#!/usr/bin/env python3
+import warnings
+import pandas as pd
+warnings.filterwarnings("ignore", category=pd.errors.PerformanceWarning)
+warnings.filterwarnings("ignore", category=FutureWarning)
 
 #PJM_files
 files = [
-    "Data/Intermediate/hrl_load_metered_2018.csv",
-    "Data/Intermediate/hrl_load_metered_2019.csv",
-    "Data/Intermediate/hrl_load_metered_2020.csv",
-    "Data/Intermediate/hrl_load_metered_2021.csv",
-    "Data/Intermediate/hrl_load_metered_2022.csv",
-    "Data/Intermediate/hrl_load_metered_2023.csv",
-    "Data/Intermediate/hrl_load_metered_2024.csv",
-    "Data/Intermediate/hrl_load_metered_2025.csv",
+    "Data/raw/hrl_load_metered_2018.csv",
+    "Data/raw/hrl_load_metered_2019.csv",
+    "Data/raw/hrl_load_metered_2020.csv",
+    "Data/raw/hrl_load_metered_2021.csv",
+    "Data/raw/hrl_load_metered_2022.csv",
+    "Data/raw/hrl_load_metered_2023.csv",
+    "Data/raw/hrl_load_metered_2024.csv",
+    "Data/raw/hrl_load_metered_2025.csv",
 ]
 
 #dates
@@ -138,38 +142,8 @@ df_other_years = df[
 
 df = pd.concat([df_2020, df_other_years], ignore_index=True)
 
-df.to_csv("Data/intermediate/PJM_intermediate.csv", index=False)
+# df.to_csv("Data/intermediate/PJM_intermediate.csv", index=False)
+df.to_parquet("Data/intermediate/PJM_intermediate.parquet", index=False)
 
 
 
-# na_summary = (
-#     df.groupby(["Year", "Month"])
-#       .agg(
-#           na_mw_lag_1y = ("mw_lag_1y", lambda x: x.isna().sum()),
-#           na_prev_month_mean_mw = ("prev_month_mean_mw", lambda x: x.isna().sum()),
-#           total_rows = ("mw", "size")
-#       )
-# )
-
-# print(na_summary.to_string())
-
-# print(na_summary.to_string())
-
-# print(df.head())
-
-
-# print(df["mw_lag_1y"].isna().groupby(df["Year"]).sum())
-# print(df.groupby("Year").size())
-
-# print(df[
-#     (df["load_area"] == "AECO") &
-#     (df["Year"] == 2021) &
-#     (df["Hour"] == 5)
-# ].head())
-# print(df[
-#     (df["load_area"] == "AECO") &
-#     (df["Year"] == 2022) &
-#     (df["Hour"] == 5)
-# ].head())
-
-# print(df[df["Year"] == 2020])

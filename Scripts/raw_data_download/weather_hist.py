@@ -1,5 +1,10 @@
+#!/usr/bin/env python3
 import requests
+import warnings
 import pandas as pd
+
+warnings.filterwarnings("ignore", category=pd.errors.PerformanceWarning)
+warnings.filterwarnings("ignore", category=FutureWarning)
 
 #hard coded coords from weather_coords.py 
 #no need to keep pulling from api unless the cities grow legs 
@@ -129,7 +134,7 @@ state_codes = [
 
 
 start_date='2019-10-01'
-end_date='2025-11-01'
+end_date='2025-03-01'
  
 dates = pd.date_range(start=start_date, end=end_date, freq="D")
 df = pd.DataFrame(index=dates)
@@ -142,7 +147,7 @@ import time
 # state_codes = ["DE",]
 for state in state_codes:
     temp_vals = get_state_daily_temps_hist(state, start_date=start_date, end_date=end_date)
-    time.sleep(10)
+    time.sleep(15)
     df[f"min_{state}"]  = temp_vals["min"]
     df[f"max_{state}"]  = temp_vals["max"]
     df[f"mean_{state}"] = temp_vals["mean"]
@@ -150,7 +155,10 @@ for state in state_codes:
 
 df = df.reset_index().rename(columns={"index": "date"})
 
-df.to_csv("Data/intermediate/weather_intermediate.csv", index=False)
+# df.to_csv("Data/raw/weather_hist.csv", index=False)
+df.to_parquet("Data/raw/weather_hist.parquet", index=False)
+
+
 
 
 

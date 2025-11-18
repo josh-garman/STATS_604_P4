@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 import numpy as np
+import warnings
 import pandas as pd
 from pathlib import Path
 from joblib import load as joblib_load
 from sklearn.base import BaseEstimator, TransformerMixin
-
+warnings.filterwarnings("ignore", category=pd.errors.PerformanceWarning)
+warnings.filterwarnings("ignore", category=FutureWarning)
 
 # Travis Dauwalter et al. (2022)
 # “Coalition Stability in PJM: Exploring the Consequences of State Defection from the Wholesale Market.”
@@ -92,32 +94,6 @@ def peak_middle_idx_3hr(y_hat, window=3):
     return middle_idx
 
 
-
-# model_dir = Path("Models")  
-
-
-
-# pred = pd.read_csv("Data/processed/prediction_frame.csv")
-# pred = pred.copy()
-
-
-# # --- 3) loop by zone and predict ---
-# for zone in load_area_states:
-#     if zone not in ["AE"]:
-#         continue
-#     mask = pred["load_area"] == zone
-#     df_zone = pred.loc[mask].copy()
-#     model_path = model_dir / f"{zone}_ridge_pipeline.joblib"
-#     model = joblib_load(model_path)
-
-#     # Feed full feature DF; the pipeline's ColumnTransformer will select what it needs
-#     y_hat = model.predict(df_zone)
-#     print(y_hat)
-#     print(peak_middle_idx_3hr(y_hat))
-
-#     pred.loc[mask, "mw_pred"] = y_hat
-    
-
 def add_zone_predictions(
     df,
     model_dir="Models",
@@ -146,6 +122,7 @@ def add_zone_predictions(
 
         # slice with the *original* index; do not sort, do not reindex
         df_zone = df_out.loc[zone_idx]
+
         y_hat = model.predict(df_zone)
 
         # # sanity check: one prediction per row
@@ -219,45 +196,58 @@ def make_daily_scores(
 
 def predict(df, reg_model_dir = "Models/production", zones=None, 
             pred_col="mw_pred", reg_model_suffix="_ridge_pipeline.joblib", 
-            class_model_dir = "Models/production"):
+            class_model_dir = None):
     pred_df = df.copy()
     pred_df = add_zone_predictions(
                 pred_df,
-                model_dir="Models",
+                model_dir=reg_model_dir,
                 zones=None,
                 pred_col="mw_pred",
-                model_suffix="_ridge_pipeline.joblib",
+                model_suffix=reg_model_suffix,
             )
     daily_df = make_daily_scores(
                 pred_df,
                 pred_col="mw_pred",
                 window=3,
             )
+    if class_model_dir is not None:
+        thresholds_df = pd.read_parquet(f"{class_model_dir}/zone_peak_day_thresholds.parquet")
 
-    thresholds_df = pd.read_csv(f"{class_model_dir}/zone_peak_day_thresholds.csv")
+        daily_df = daily_df.merge(
+            thresholds_df[["zone", "threshold"]],
+            left_on="load_area",
+            right_on="zone",
+            how="left"
+        )
 
-    daily_df = daily_df.merge(
-        thresholds_df[["zone", "threshold"]],
-        left_on="load_area",
-        right_on="zone",
-        how="left"
-    )
+        daily_df["is_pred_peak_day"] = (daily_df["max_pred_mw"] >= daily_df["threshold"]).astype(int)
 
-    daily_df["is_pred_peak_day"] = (daily_df["max_pred_mw"] >= daily_df["threshold"]).astype(int)
+        daily_cols = [
+            "load_area",
+            "date",
+            "max_pred_mw",
+            "peak_hour_idx",
+            "is_pred_peak_day",
+        ]
 
-    daily_cols = [
-        "load_area",
-        "date",
-        "max_pred_mw",
-        "peak_hour_idx",
-        "is_pred_peak_day",
-    ]
+        pred_df = pred_df.merge(
+            daily_df[daily_cols],
+            on=["load_area", "date"],
+            how="left",
+        )
+    else:
+        daily_cols = [
+            "load_area",
+            "date",
+            "max_pred_mw",
+            "peak_hour_idx",
+        ]
 
-    pred_df = pred_df.merge(
-        daily_df[daily_cols],
-        on=["load_area", "date"],
-        how="left",
-    )
+        pred_df = pred_df.merge(
+            daily_df[daily_cols],
+            on=["load_area", "date"],
+            how="left",
+        )
 
     return pred_df
     

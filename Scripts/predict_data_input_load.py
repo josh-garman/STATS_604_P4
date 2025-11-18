@@ -1,7 +1,11 @@
+#!/usr/bin/env python3
 import time 
+import warnings
 import pandas as pd
 import numpy as np
 import holidays
+warnings.filterwarnings("ignore", category=pd.errors.PerformanceWarning)
+warnings.filterwarnings("ignore", category=FutureWarning)
 
 US_HOLIDAYS = holidays.US()
 
@@ -53,7 +57,7 @@ def build_prediction_frame(train_df, weather_df, target_date=None):
             "Hour",
             "mw"
         ]
-    ].copy()
+    ]
     hist = hist.rename(
         columns={
             "mw": "mw_lag_1y" 
@@ -90,7 +94,7 @@ def build_prediction_frame(train_df, weather_df, target_date=None):
         how="left"
     )
 
-    weather_df = weather_df.copy()
+    weather_df = weather_df
     weather_df["date"] = pd.to_datetime(weather_df["date"]).dt.date
 
     pred = pred.merge(weather_df, on="date", how="left")
@@ -126,13 +130,25 @@ def build_prediction_frame(train_df, weather_df, target_date=None):
     # fix datetime columns & drop temp columns
     pred = pred.drop(columns=["datetime_beginning_utc_hist", "Hour_hist", "year_month","dt_1y_ago"])
 
-    pred.to_csv("Data/processed/prediction_frame.csv", index=False)
+    return pred
  
 
 
-  
+# hist_data = pd.read_csv("Data/processed/full_data.csv")
+usecols = ["datetime_beginning_utc", "load_area", "Hour", "mw"]
+
+# hist_data = pd.read_csv(
+#     "Data/processed/full_data.csv",
+#     usecols=usecols
+# )
+
+hist_data = pd.read_parquet(
+    "Data/processed/full_data.parquet",
+    columns=usecols
+)
 
 
-hist_data = pd.read_csv("Data/processed/full_data.csv")
-weather_df = pd.read_csv("Data/intermediate/weather_tomorrow_forecast.csv")
-build_prediction_frame(hist_data, weather_df=weather_df, target_date=None)
+# weather_df = pd.read_csv("Data/intermediate/weather_tomorrow_forecast.csv")
+weather_df = pd.read_parquet("Data/intermediate/weather_tomorrow_forecast.parquet")
+pred_frame = build_prediction_frame(hist_data, weather_df=weather_df, target_date=None)
+pred_frame.to_csv("Data/processed/prediction_frame.csv", index=False)
